@@ -929,9 +929,22 @@ function readSelectionFromState(providerId: ProviderId, mode: Mode): ResolvedMod
 	}
 
 	if (!rememberedSelection || rememberedSelection.modelId !== modelId) {
-		return providerSettingsSelection
+		return resolveSelection({ providerId, modelId })
 	}
 	return rememberedSelection
+}
+
+function writeSelectionBaseModelInfoForMode(providerId: ProviderId, mode: Mode, selection: ResolvedModelSelection): void {
+	const modelInfoKey = getModelInfoKey(providerId, mode)
+	if (modelInfoKey) {
+		const value = usesStateModelInfoHint(providerId)
+			? selection.modelInfoSource === "fallback"
+				? undefined
+				: (selection.baseModelInfo ?? selection.modelInfo)
+			: selection.modelInfo
+		StateManager.get().setGlobalState(modelInfoKey, value as never)
+	}
+	selectionMemory.set(memoryKey(providerId, mode), { ...selection, providerId })
 }
 
 /**
@@ -989,6 +1002,24 @@ export function createProviderConfigStore(): ProviderConfigStore {
 			)
 			writeSelectionToState(providerId, mode, resolvedSelection)
 			emit({ kind: "selection", providerId, mode, selection: resolvedSelection })
+		},
+
+		refreshSelectionBaseModelInfo(providerId: ProviderId, catalogModels: ReadonlyMap<string, ModelInfo>): void {
+			for (const mode of ["plan", "act"] as const) {
+				const current = readSelectionFromState(providerId, mode)
+				if (!current) {
+					continue
+				}
+				const liveModelInfo = catalogModels.get(current.modelId)
+				if (!liveModelInfo) {
+					continue
+				}
+				const refreshed = resolveSelection(
+					{ providerId, modelId: current.modelId, overrides: current.overrides },
+					{ modelInfo: liveModelInfo, source: "catalog" },
+				)
+				writeSelectionBaseModelInfoForMode(providerId, mode, refreshed)
+			}
 		},
 	}
 }

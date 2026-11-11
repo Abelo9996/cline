@@ -19,6 +19,7 @@ function makeStore(config: EffectiveProviderConfig): ProviderConfigStore {
 		subscribe: vi.fn(() => ({ dispose: vi.fn() })),
 		write: vi.fn(() => config),
 		commitSelection: vi.fn(),
+		refreshSelectionBaseModelInfo: vi.fn(),
 	}
 }
 
@@ -154,6 +155,7 @@ describe("provider model catalog handlers", () => {
 		// filtered out. The picker can leave the selection unset instead.
 		expect(response.defaultModelId).toBeUndefined()
 		expect(catalog.resolveModels).toHaveBeenCalledWith(providerId, { forceRefresh: true })
+		expect(store.refreshSelectionBaseModelInfo).toHaveBeenCalledWith(providerId, expect.any(Map))
 	})
 
 	it("readProviderConfig redacts secrets", async () => {
